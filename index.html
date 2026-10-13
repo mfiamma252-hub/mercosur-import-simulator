@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImportCalc · Calculadora de Importaciones</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00c896;
+    --green-dim: rgba(0,200,150,0.1);
+    --green-dark: #007a5e;
+    --navy: #111a28;
+    --navy2: #192333;
+    --navy3: #1f2d3d;
+    --text: #e0e8f0;
+    --muted: #546a7a;
+    --border: rgba(0,200,150,0.15);
+    --warn: #f0a030;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'Instrument Sans', sans-serif;
+    min-height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 70% 50% at 100% 0%, rgba(0,200,150,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 0% 100%, rgba(0,100,200,0.04) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+
+  header {
+    position: relative; z-index: 1;
+    background: rgba(17,26,40,0.9);
+    border-bottom: 1px solid rgba(0,200,150,0.12);
+    padding: 18px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(8px);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 36px; height: 36px; background: var(--green);
+    border-radius: 8px; display: flex; align-items: center;
+    justify-content: center; font-size: 18px;
+  }
+  .logo-name { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; color: #fff; }
+  .logo-sub { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+  .rate-badge {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--muted);
+  }
+  .rate-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+
+  main {
+    position: relative; z-index: 1;
+    max-width: 660px; margin: 0 auto; padding: 44px 20px 80px;
+  }
+
+  .page-title { margin-bottom: 36px; animation: fadeUp 0.5s ease; }
+  .page-title h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(24px, 5vw, 36px); font-weight: 800;
+    color: #fff; margin-bottom: 6px; letter-spacing: -0.5px;
+  }
+  .page-title p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+  .field { margin-bottom: 26px; }
+  .field-label {
+    display: block; font-size: 10px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px; font-weight: 600;
+  }
+
+  /* Currency grid */
+  .currency-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+  }
+  .currency-btn {
+    padding: 10px 8px; border-radius: 8px; cursor: pointer;
+    border: 1.5px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: var(--muted); font-size: 12px; font-weight: 500;
+    font-family: 'Instrument Sans', sans-serif;
+    text-align: center; transition: all 0.15s;
+  }
+  .currency-btn:hover { border-color: var(--green); color: #fff; }
+  .currency-btn.active {
+    border-color: var(--green); background: var(--green-dim);
+    color: var(--green); font-weight: 600;
+  }
+  .currency-btn .flag { display: block; font-size: 18px; margin-bottom: 4px; }
+  .currency-btn .code { display: block; font-size: 11px; }
+  .rate-info { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .rate-info span { color: var(--green); }
+
+  /* Platform pills */
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    padding: 8px 16px; border-radius: 30px; cursor: pointer;
+    border: 1.5px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: var(--muted); font-size: 13px;
+    font-family: 'Instrument Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .pill:hover { border-color: rgba(255,255,255,0.2); color: #fff; }
+  .pill.active { border-color: #fff; background: rgba(255,255,255,0.08); color: #fff; font-weight: 500; }
+  .pill-disabled { opacity: 0.35; cursor: not-allowed; }
+  .pill-disabled:hover { border-color: rgba(255,255,255,0.1); color: var(--muted); }
+
+  /* Product rows */
+  .product-row {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 10px;
+    animation: fadeUp 0.2s ease;
+  }
+  .product-row input {
+    padding: 11px 14px; border-radius: 8px;
+    border: 1.5px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: var(--text); font-size: 14px;
+    font-family: 'Instrument Sans', sans-serif;
+    outline: none; transition: border-color 0.2s;
+  }
+  .product-row input:focus { border-color: rgba(0,200,150,0.4); }
+  .product-row input::placeholder { color: var(--muted); }
+  .input-name { flex: 2; }
+  .input-price-wrap { flex: 1; position: relative; }
+  .input-price-wrap .sym {
+    position: absolute; left: 12px; top: 50%;
+    transform: translateY(-50%); color: var(--muted); font-size: 14px;
+  }
+  .input-price { width: 100%; padding-left: 26px !important; }
+  .btn-remove {
+    background: none; border: none; color: rgba(255,255,255,0.2);
+    font-size: 20px; cursor: pointer; padding: 0 4px;
+    line-height: 1; transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .btn-remove:hover { color: #ff6060; }
+  .btn-add-product {
+    width: 100%; padding: 10px;
+    background: none; border: 1.5px dashed rgba(255,255,255,0.12);
+    color: var(--muted); border-radius: 8px; cursor: pointer;
+    font-size: 13px; font-family: 'Instrument Sans', sans-serif;
+    margin-top: 4px; transition: all 0.15s;
+  }
+  .btn-add-product:hover { border-color: var(--green); color: var(--green); }
+
+  .input-single {
+    padding: 11px 14px 11px 28px; border-radius: 8px;
+    border: 1.5px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: var(--text); font-size: 14px;
+    font-family: 'Instrument Sans', sans-serif;
+    outline: none; max-width: 200px; width: 100%;
+    transition: border-color 0.2s;
+  }
+  .input-single:focus { border-color: rgba(0,200,150,0.4); }
+
+  .btn-calcular {
+    width: 100%; padding: 16px;
+    background: var(--green); border: none; border-radius: 10px;
+    color: var(--navy); font-size: 14px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    cursor: pointer; font-family: 'Syne', sans-serif;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-top: 8px;
+  }
+  .btn-calcular:hover { opacity: 0.9; }
+  .btn-calcular:active { transform: scale(0.99); }
+  .btn-calcular:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Results */
+  #results { display: none; animation: fadeUp 0.5s ease; }
+  .results-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .results-nav h2 {
+    font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: #fff;
+  }
+  .btn-back {
+    background: none; border: 1.5px solid rgba(255,255,255,0.12);
+    color: var(--muted); padding: 6px 16px; border-radius: 20px;
+    cursor: pointer; font-size: 12px;
+    font-family: 'Instrument Sans', sans-serif; transition: all 0.15s;
+  }
+  .btn-back:hover { border-color: var(--green); color: var(--green); }
+
+  .total-card {
+    background: var(--navy2); border: 1.5px solid var(--border);
+    border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 20px;
+    position: relative; overflow: hidden;
+  }
+  .total-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+  }
+  .total-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .total-amount {
+    font-family: 'Syne', sans-serif; font-size: 48px; font-weight: 800;
+    color: var(--green); line-height: 1; letter-spacing: -1px;
+  }
+  .total-currency { font-size: 20px; color: var(--muted); margin-left: 6px; }
+  .total-meta { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+  .breakdown {
+    background: var(--navy2); border: 1.5px solid rgba(255,255,255,0.06);
+    border-radius: 12px; overflow: hidden; margin-bottom: 18px;
+  }
+  .breakdown-header {
+    padding: 14px 20px; background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  }
+  .breakdown-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 13px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 14px;
+  }
+  .breakdown-row:last-child { border-bottom: none; }
+  .breakdown-row .label { color: #8a9aaa; }
+  .breakdown-row .value { font-weight: 600; color: var(--text); }
+  .breakdown-row.subtax .value { color: var(--warn); }
+  .breakdown-row.total-row {
+    background: var(--green-dim); border-top: 1.5px solid var(--border);
+  }
+  .breakdown-row.total-row .label { color: #fff; font-weight: 600; }
+  .breakdown-row.total-row .value { color: var(--green); font-weight: 700; font-family: 'Syne', sans-serif; }
+
+  .warning-box {
+    padding: 14px 18px; border-radius: 8px;
+    background: rgba(240,160,48,0.08); border: 1px solid rgba(240,160,48,0.25);
+    font-size: 12px; color: #c09040; line-height: 1.6; margin-bottom: 18px;
+  }
+
+  .btn-nueva {
+    width: 100%; padding: 14px;
+    background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
+    color: var(--text); border-radius: 10px; cursor: pointer;
+    font-size: 14px; font-weight: 500;
+    font-family: 'Instrument Sans', sans-serif; transition: all 0.15s;
+  }
+  .btn-nueva:hover { background: rgba(255,255,255,0.08); }
+
+  .error-box {
+    padding: 12px 16px; border-radius: 8px;
+    background: rgba(255,80,80,0.08); border: 1px solid rgba(255,80,80,0.25);
+    color: #ff8080; font-size: 13px; margin-bottom: 16px; display: none;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 32px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 4px;
+  }
+  .tab {
+    flex: 1; padding: 11px; border: none; border-radius: 9px; cursor: pointer;
+    background: none; color: var(--muted); font-size: 13px; font-weight: 600;
+    font-family: 'Instrument Sans', sans-serif; transition: all 0.15s;
+  }
+  .tab.active { background: var(--navy3); color: #fff; }
+  .tab:not(.active):hover { color: var(--text); }
+
+  /* Compare view */
+  .store-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 26px; }
+  @media (max-width: 480px) { .store-cols { grid-template-columns: 1fr; } }
+  .store-card {
+    border-radius: 14px; padding: 18px; border: 1.5px solid var(--sc-border, rgba(255,255,255,0.08));
+    background: var(--navy2);
+  }
+  .store-card.amazon { --sc-border: rgba(255,153,0,0.25); }
+  .store-card.ml { --sc-border: rgba(255,230,0,0.22); }
+  .store-header {
+    display: flex; align-items: center; gap: 8px; font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 16px;
+  }
+  .store-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .store-card.amazon .store-dot { background: #FF9900; }
+  .store-card.ml .store-dot { background: #FFE600; }
+  .store-card .field { margin-bottom: 14px; }
+  .store-card .field:last-child { margin-bottom: 0; }
+  .store-card input {
+    width: 100%; padding: 10px 12px; border-radius: 8px;
+    border: 1.5px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
+    color: var(--text); font-size: 14px; font-family: 'Instrument Sans', sans-serif;
+    outline: none; transition: border-color 0.2s;
+  }
+  .store-card input:focus { border-color: rgba(0,200,150,0.4); }
+
+  #compare-results { display: none; animation: fadeUp 0.5s ease; }
+  .winner-card {
+    border-radius: 16px; padding: 28px; text-align: center; margin-bottom: 20px;
+    background: var(--navy2); border: 1.5px solid var(--green); position: relative; overflow: hidden;
+  }
+  .winner-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+  }
+  .winner-badge {
+    display: inline-block; font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--green); font-weight: 700; margin-bottom: 10px;
+  }
+  .winner-store { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .winner-save { font-size: 14px; color: var(--muted); }
+  .winner-save b { color: var(--green); }
+
+  .vs-rows { background: var(--navy2); border: 1.5px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
+  .vs-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .vs-row:last-child { border-bottom: none; }
+  .vs-row.win { background: var(--green-dim); }
+  .vs-store { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text); }
+  .vs-store .store-dot { width: 8px; height: 8px; }
+  .vs-amount { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 17px; color: var(--text); }
+  .vs-row.win .vs-amount { color: var(--green); }
+  .vs-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .search-assist-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .btn-search-assist {
+    flex: 1; min-width: 140px; padding: 9px 12px; border-radius: 8px; cursor: pointer;
+    font-size: 12px; font-weight: 600; font-family: 'Instrument Sans', sans-serif;
+    background: rgba(255,255,255,0.04); color: var(--text); transition: all 0.15s;
+  }
+  .btn-search-assist.amazon { border: 1.5px solid rgba(255,153,0,0.3); }
+  .btn-search-assist.amazon:hover { background: rgba(255,153,0,0.1); }
+  .btn-search-assist.ml { border: 1.5px solid rgba(255,230,0,0.28); }
+  .btn-search-assist.ml:hover { background: rgba(255,230,0,0.1); }
+  .search-assist-hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🌎</div>
+    <div>
+      <div class="logo-name">ImportCalc</div>
+      <div class="logo-sub">Calculadora de Importaciones</div>
+    </div>
+  </div>
+  <div class="rate-badge">
+    <div class="rate-dot" id="rate-dot"></div>
+    <span id="rate-status">Cargando tasas...</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-btn-calc" onclick="switchTab('calc')">🧮 Calculadora</button>
+    <button class="tab" id="tab-btn-compare" onclick="switchTab('compare')">⚖️ Comparar tiendas</button>
+  </div>
+
+  <div id="tab-calc">
+
+  <!-- FORM -->
+  <div id="form-view">
+    <div class="page-title">
+      <h1>Calculá tu compra<br>internacional</h1>
+      <p>Ingresá productos en USD y convertí al precio final en tu moneda local, con impuestos incluidos.</p>
+    </div>
+
+    <!-- Moneda -->
+    <div class="field">
+      <label class="field-label">Moneda de destino</label>
+      <div class="currency-grid" id="currency-grid"></div>
+      <div class="rate-info" id="rate-info"></div>
+    </div>
+
+    <!-- Plataforma -->
+    <div class="field">
+      <label class="field-label">Plataforma de compra</label>
+      <div class="pill-row" id="platform-group">
+        <div class="pill active" onclick="selectPill('platform-group',this)">Amazon</div>
+        <div class="pill" onclick="selectPill('platform-group',this)">Temu</div>
+        <div class="pill" onclick="selectPill('platform-group',this)">AliExpress</div>
+        <div class="pill" onclick="selectPill('platform-group',this)">Shein</div>
+        <div class="pill" onclick="selectPill('platform-group',this)">eBay</div>
+        <div class="pill" onclick="selectPill('platform-group',this)">Otro</div>
+      </div>
+    </div>
+
+    <!-- Productos -->
+    <div class="field">
+      <label class="field-label">Productos en USD</label>
+      <div id="products-container"></div>
+      <button class="btn-add-product" onclick="addProduct()">+ Agregar producto</button>
+    </div>
+
+    <!-- Envío -->
+    <div class="field">
+      <label class="field-label">Costo de envío en USD (opcional)</label>
+      <div style="position:relative; display:inline-block;">
+        <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted);">$</span>
+        <input class="input-single" type="number" id="envio" placeholder="0.00" min="0">
+      </div>
+    </div>
+
+    <div class="error-box" id="error-box">Por favor ingresá al menos un producto con precio.</div>
+
+    <button class="btn-calcular" id="btn-calcular" onclick="calcular()">🧮 CALCULAR PRECIO FINAL</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+    <div class="results-nav">
+      <h2>Resumen de compra</h2>
+      <button class="btn-back" onclick="volverAlForm()">← Editar</button>
+    </div>
+    <div class="total-card">
+      <div class="total-label" id="res-label">Total a pagar</div>
+      <div>
+        <span class="total-amount" id="res-total">0</span>
+        <span class="total-currency" id="res-currency">ARS</span>
+      </div>
+      <div class="total-meta" id="res-meta"></div>
+    </div>
+    <div class="breakdown">
+      <div class="breakdown-header">Desglose del cálculo</div>
+      <div id="res-rows"></div>
+    </div>
+    <div class="warning-box">
+      ⚠️ <strong>Nota:</strong> Los impuestos son estimados y pueden variar según país, aduana y tipo de producto. Consultá la normativa vigente antes de importar.
+    </div>
+    <button class="btn-nueva" onclick="nuevaConsulta()">Nueva consulta</button>
+  </div>
+
+  </div><!-- /tab-calc -->
+
+  <div id="tab-compare" style="display:none">
+    <div id="compare-form">
+      <div class="page-title">
+        <h1>¿Dónde te<br>conviene comprar?</h1>
+        <p>Cargá el mismo producto de Amazon EE. UU. y Mercado Libre Argentina, y te decimos cuál sale más barato puesto en tu casa.</p>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Tienda importada</label>
+        <div class="pill-row" id="cmp-tienda-group">
+          <div class="pill active" data-tienda="amazon" onclick="selectTienda(this,'amazon')">📦 Amazon EE. UU.</div>
+          <div class="pill" data-tienda="temu" onclick="selectTienda(this,'temu')">📦 Temu</div>
+          <div class="pill" data-tienda="shein" onclick="selectTienda(this,'shein')">📦 Shein</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">País destino</label>
+        <div class="pill-row" id="cmp-pais-group">
+          <div class="pill active" data-pais="AR" onclick="selectPais(this,'AR')">🇦🇷 Argentina</div>
+          <div class="pill" data-pais="BR" onclick="selectPais(this,'BR')">🇧🇷 Brasil</div>
+          <div class="pill" data-pais="MX" onclick="selectPais(this,'MX')">🇲🇽 México</div>
+          <div class="pill pill-disabled" title="Próximamente">🇨🇴 Colombia</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Producto</label>
+        <input class="input-single" style="max-width:100%" id="cmp-name" type="text" placeholder="Ej: Auriculares Sony WH-1000XM5">
+        <div class="search-assist-row">
+          <button type="button" class="btn-search-assist amazon" id="cmp-btn-buscar-importada" onclick="buscarEn('importada')">🔎 Buscar en Amazon</button>
+          <button type="button" class="btn-search-assist ml" onclick="buscarEn('ml')">🔎 Buscar en Mercado Libre</button>
+        </div>
+        <div class="search-assist-hint">Se abre en una pestaña nueva. Copiá el precio que encuentres y cargalo abajo.</div>
+      </div>
+
+      <div class="store-cols">
+        <div class="store-card amazon" id="cmp-card-importada">
+          <div class="store-header"><span class="store-dot" id="cmp-dot-importada"></span><span id="cmp-header-importada">Amazon EE. UU.</span></div>
+          <div class="field">
+            <label class="field-label">Precio (USD)</label>
+            <input type="number" min="0" id="amz-price" placeholder="0.00">
+          </div>
+          <div class="field">
+            <label class="field-label">Envío a <span id="cmp-envio-pais">Argentina</span> (USD, opcional)</label>
+            <input type="number" min="0" id="amz-ship" placeholder="0.00">
+          </div>
+        </div>
+        <div class="store-card ml">
+          <div class="store-header"><span class="store-dot"></span><span id="cmp-ml-header">Mercado Libre AR</span></div>
+          <div class="field">
+            <label class="field-label">Precio (<span id="cmp-moneda-1">ARS</span>)</label>
+            <input type="number" min="0" id="ml-price" placeholder="0.00">
+          </div>
+          <div class="field">
+            <label class="field-label">Envío (<span id="cmp-moneda-2">ARS</span>, opcional)</label>
+            <input type="number" min="0" id="ml-ship" placeholder="0.00">
+          </div>
+        </div>
+      </div>
+
+      <div class="error-box" id="cmp-error-box">Ingresá al menos el precio de Amazon y el de Mercado Libre.</div>
+
+      <button class="btn-calcular" id="btn-comparar" onclick="comparar()">⚖️ COMPARAR PRECIOS</button>
+    </div>
+
+    <!-- COMPARE RESULTS -->
+    <div id="compare-results">
+      <div class="results-nav">
+        <h2>Resultado de la comparación</h2>
+        <button class="btn-back" onclick="volverAlFormCompare()">← Editar</button>
+      </div>
+
+      <div class="winner-card">
+        <div class="winner-badge">Conviene comprar en</div>
+        <div class="winner-store" id="cmp-winner-store">—</div>
+        <div class="winner-save" id="cmp-winner-save"></div>
+      </div>
+
+      <div class="vs-rows" id="cmp-vs-rows"></div>
+
+      <div class="warning-box">
+        ⚠️ <strong>Cómo se calculó:</strong> <span id="cmp-regimen-nota"></span> El de Mercado Libre se toma tal cual, porque es una compra local sin trámite de importación. Valores estimados y vigentes a la fecha de esta sesión: verificá el cálculo real de aduana antes de comprar.
+      </div>
+
+      <button class="btn-nueva" onclick="nuevaComparacion()">Nueva comparación</button>
+    </div>
+  </div><!-- /tab-compare -->
+
+</main>
+
+<script>
+const MONEDAS = [
+  { codigo:'ARS', nombre:'Peso Argentino', bandera:'🇦🇷', impuesto:1.60 },
+  { codigo:'BRL', nombre:'Real Brasileño', bandera:'🇧🇷', impuesto:1.18 },
+  { codigo:'MXN', nombre:'Peso Mexicano', bandera:'🇲🇽', impuesto:1.19 },
+  { codigo:'COP', nombre:'Peso Colombiano', bandera:'🇨🇴', impuesto:1.29 },
+];
+
+const FALLBACK = { ARS:1100, BRL:5.15, MXN:17.8, COP:3950 };
+
+/* ===== Regímenes de importación por país (comparador Amazon vs Mercado Libre) =====
+   type 'marginal': el excedente sobre la franquicia paga una tasa extra; el resto de la
+                     compra siempre paga la tasa base (ej: Argentina).
+   type 'cliff':     si la compra supera la franquicia, TODA la compra (no solo el excedente)
+                     pasa a tributar con el multiplicador del tramo siguiente (ej: Brasil, México).
+   Fuente: ARCA (AR, régimen Courier), Receita Federal / Remessa Conforme (BR, MP 1.357/2026),
+   SAT / régimen simplificado de paquetería (MX). Vigente a la fecha de esta sesión (jul. 2026). */
+const REGIMENES = {
+  AR: {
+    pais: 'Argentina', moneda: 'ARS', mlSite: 'mercadolibre.com.ar', mlBuscador: 'listado', bandera: '🇦🇷',
+    type: 'marginal', franquiciaUSD: 400, baseMultiplier: 1.21, extraRateExcedente: 0.50,
+    nota: 'Régimen Courier: IVA 21% sobre toda la compra + 50% adicional sobre lo que excede los primeros US$400.'
+  },
+  BR: {
+    pais: 'Brasil', moneda: 'BRL', mlSite: 'mercadolivre.com.br', mlBuscador: 'lista', bandera: '🇧🇷',
+    type: 'cliff', franquiciaUSD: 50,
+    multiplicadorBajo: 1.19, multiplicadorAlto: 1.605,
+    nota: 'Remessa Conforme: hasta US$50 solo paga ICMS (~19%). Por encima, toda la compra paga 30% de Imposto de Importação + ICMS.'
+  },
+  MX: {
+    pais: 'México', moneda: 'MXN', mlSite: 'mercadolibre.com.mx', mlBuscador: 'listado', bandera: '🇲🇽',
+    type: 'cliff', franquiciaUSD: 50,
+    multiplicadorBajo: 1.00, multiplicadorAlto: 1.19,
+    nota: 'Régimen simplificado de paquetería: hasta US$50 exento de IGI e IVA. Por encima, toda la compra paga ~19% (IVA + cargos aduaneros).'
+  }
+};
+
+/* ===== Tiendas "importadas" a comparar contra Mercado Libre =====
+   Amazon suele llegar por courier privado (DHL/FedEx) → régimen Courier de cada país.
+   Temu suele llegar por correo postal → en Argentina eso es un régimen DISTINTO
+   (Correo Argentino / Puerta a Puerta), con su propia franquicia y tasa.
+   En Brasil y México la normativa no distingue el transportista, así que Temu
+   usa el mismo REGIMENES[pais] que ya está definido para Amazon. */
+const TIENDAS = {
+  amazon: { nombre: 'Amazon EE. UU.', color: '#FF9900', dominio: 'amazon.com', buscador: (q) => `https://www.amazon.com/s?k=${q}` },
+  temu:   { nombre: 'Temu', color: '#F4511E', dominio: 'temu.com', buscador: (q) => `https://www.temu.com/search_result.html?search_key=${q}` },
+  shein:  { nombre: 'Shein', color: '#F5F5F5', dominio: 'shein.com', buscador: (q) => `https://www.shein.com/pdsearch/${q}/` },
+};
+
+// Régimen Correo Argentino / Puerta a Puerta (solo aplica a Temu en Argentina)
+const REGIMEN_CORREO_AR = {
+  type: 'marginal', franquiciaUSD: 50, baseMultiplier: 1.00, extraRateExcedente: 0.50,
+  nota: 'Puerta a Puerta (Correo Argentino): hasta US$50 no se paga ningún impuesto. Por encima, 50% sobre el excedente (incluye todo, no se suma IVA aparte). No incluye la tasa fija de gestión del Correo.'
+};
+
+// Calcula el total final en USD (con impuestos) para un subtotal (producto+envío) en USD,
+// según la tienda importada y el país destino elegidos
+function calcularImpuestoImportado(codigoTienda, codigoPais, subtotalUSD) {
+  const usaCorreoAR = (codigoTienda === 'temu' || codigoTienda === 'shein') && codigoPais === 'AR';
+  const r = usaCorreoAR ? REGIMEN_CORREO_AR : REGIMENES[codigoPais];
+  if (subtotalUSD <= 0) return { total: 0, regimen: r };
+  let total;
+  if (r.type === 'marginal') {
+    const excedente = Math.max(0, subtotalUSD - r.franquiciaUSD);
+    total = subtotalUSD * r.baseMultiplier + excedente * r.extraRateExcedente;
+  } else {
+    total = subtotalUSD * (subtotalUSD <= r.franquiciaUSD ? r.multiplicadorBajo : r.multiplicadorAlto);
+  }
+  return { total, regimen: r };
+}
+
+let tasas = {};
+let selectedMoneda = 'ARS';
+let productCount = 0;
+let ratesLoaded = false;
+let cmpPais = 'AR';
+let cmpTienda = 'amazon';
+
+// Build currency grid
+const grid = document.getElementById('currency-grid');
+MONEDAS.forEach(m => {
+  const btn = document.createElement('button');
+  btn.className = 'currency-btn' + (m.codigo === 'ARS' ? ' active' : '');
+  btn.dataset.codigo = m.codigo;
+  btn.innerHTML = `<span class="flag">${m.bandera}</span><span class="code">${m.codigo}</span>`;
+  btn.onclick = () => selectMoneda(m.codigo, btn);
+  grid.appendChild(btn);
+});
+
+function selectMoneda(codigo, btn) {
+  document.querySelectorAll('.currency-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedMoneda = codigo;
+  updateRateInfo();
+}
+
+function updateRateInfo() {
+  const info = document.getElementById('rate-info');
+  const tasa = tasas[selectedMoneda];
+  if (!tasa) { info.innerHTML = ''; return; }
+  const moneda = MONEDAS.find(m => m.codigo === selectedMoneda);
+  info.innerHTML = `1 USD = <span>${fmt(tasa, selectedMoneda === 'PYG' ? 0 : 2)} ${selectedMoneda}</span>${ratesLoaded ? ' · actualizado ahora' : ' (aprox.)'}`;
+}
+
+function selectPill(groupId, el) {
+  document.querySelectorAll(`#${groupId} .pill`).forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// Products
+function addProduct() {
+  productCount++;
+  const id = productCount;
+  const container = document.getElementById('products-container');
+  const div = document.createElement('div');
+  div.className = 'product-row';
+  div.id = `prod-${id}`;
+  div.innerHTML = `
+    <input class="input-name product-input" type="text" placeholder="Producto ${id} (ej: Auriculares)" data-field="name">
+    <div class="input-price-wrap">
+      <span class="sym">$</span>
+      <input class="input-price product-input" type="number" min="0" placeholder="0.00" data-field="price">
+    </div>
+    <button class="btn-remove" onclick="removeProduct(${id})" title="Eliminar">×</button>
+  `;
+  container.appendChild(div);
+}
+
+function removeProduct(id) {
+  const el = document.getElementById(`prod-${id}`);
+  if (el) el.remove();
+}
+
+// Init with 2 products
+addProduct(); addProduct();
+
+// Fetch rates
+async function fetchRates() {
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=USD');
+    const data = await res.json();
+    tasas = data.rates;
+    ratesLoaded = true;
+    document.getElementById('rate-status').textContent = 'Tasas en tiempo real';
+    document.getElementById('rate-dot').style.background = 'var(--green)';
+    document.getElementById('btn-calcular').disabled = false;
+    document.getElementById('btn-comparar').disabled = false;
+    updateRateInfo();
+  } catch {
+    tasas = FALLBACK;
+    ratesLoaded = false;
+    document.getElementById('rate-status').textContent = 'Tasas aproximadas';
+    document.getElementById('rate-dot').style.background = '#f0a030';
+    document.getElementById('btn-calcular').disabled = false;
+    document.getElementById('btn-comparar').disabled = false;
+    updateRateInfo();
+  }
+}
+fetchRates();
+document.getElementById('btn-calcular').disabled = true;
+document.getElementById('btn-comparar').disabled = true;
+
+function fmt(n, decimals = 2) {
+  return n.toLocaleString('es-AR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function calcular() {
+  // Gather products
+  const rows = document.querySelectorAll('.product-row');
+  const productos = [];
+  rows.forEach(row => {
+    const name = row.querySelector('[data-field="name"]').value.trim();
+    const price = parseFloat(row.querySelector('[data-field="price"]').value) || 0;
+    if (price > 0) productos.push({ name: name || 'Producto', price });
+  });
+
+  if (productos.length === 0) {
+    document.getElementById('error-box').style.display = 'block';
+    return;
+  }
+  document.getElementById('error-box').style.display = 'none';
+
+  const moneda = MONEDAS.find(m => m.codigo === selectedMoneda);
+  const tasa = tasas[selectedMoneda] || FALLBACK[selectedMoneda] || 1;
+  const impuesto = moneda.impuesto;
+  const envioUSD = parseFloat(document.getElementById('envio').value) || 0;
+  const subtotalUSD = productos.reduce((a, p) => a + p.price, 0);
+  const totalUSD = subtotalUSD + envioUSD;
+  const totalConImpuestos = totalUSD * impuesto;
+  const totalLocal = totalConImpuestos * tasa;
+
+  const plataforma = document.querySelector('#platform-group .pill.active')?.textContent || 'Otro';
+  const isPYG = selectedMoneda === 'PYG';
+  const dec = isPYG ? 0 : 2;
+
+  // Fill results
+  document.getElementById('res-label').textContent = `Total a pagar en ${moneda.bandera} ${moneda.nombre}`;
+  document.getElementById('res-total').textContent = fmt(totalLocal, dec);
+  document.getElementById('res-currency').textContent = selectedMoneda;
+  document.getElementById('res-meta').textContent = `${plataforma} · 1 USD = ${fmt(tasa, dec)} ${selectedMoneda}`;
+
+  const rowsContainer = document.getElementById('res-rows');
+  rowsContainer.innerHTML = '';
+
+  const addRow = (label, value, cls = '') => {
+    rowsContainer.innerHTML += `
+      <div class="breakdown-row ${cls}">
+        <span class="label">${label}</span>
+        <span class="value">${value}</span>
+      </div>`;
+  };
+
+  productos.forEach(p => addRow(`📦 ${p.name}`, `$${fmt(p.price)} USD`));
+  if (envioUSD > 0) addRow('🚚 Envío', `$${fmt(envioUSD)} USD`);
+  addRow('Subtotal en USD', `$${fmt(totalUSD)} USD`);
+  addRow(`Impuestos estimados (×${impuesto.toFixed(2)})`, `+$${fmt(totalConImpuestos - totalUSD)} USD`, 'subtax');
+  addRow('Total final', `${fmt(totalLocal, dec)} ${selectedMoneda}`, 'total-row');
+
+  document.getElementById('form-view').style.display = 'none';
+  document.getElementById('results').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function volverAlForm() {
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('form-view').style.display = 'block';
+}
+
+function nuevaConsulta() {
+  document.getElementById('products-container').innerHTML = '';
+  productCount = 0;
+  addProduct(); addProduct();
+  document.getElementById('envio').value = '';
+  volverAlForm();
+}
+
+/* ===== Selección de tienda importada (comparador) ===== */
+function selectTienda(el, codigo) {
+  cmpTienda = codigo;
+  document.querySelectorAll('#cmp-tienda-group .pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  const t = TIENDAS[codigo];
+  document.getElementById('cmp-header-importada').textContent = t.nombre;
+  document.getElementById('cmp-btn-buscar-importada').textContent = `🔎 Buscar en ${t.nombre}`;
+  document.getElementById('cmp-dot-importada').style.background = t.color;
+  document.getElementById('cmp-card-importada').style.setProperty('--sc-border', t.color + '40');
+}
+
+/* ===== Selección de país destino (comparador) ===== */
+function selectPais(el, codigo) {
+  cmpPais = codigo;
+  document.querySelectorAll('#cmp-pais-group .pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  const r = REGIMENES[codigo];
+  document.getElementById('cmp-envio-pais').textContent = r.pais;
+  document.getElementById('cmp-ml-header').textContent = `Mercado Libre ${codigo}`;
+  document.getElementById('cmp-moneda-1').textContent = r.moneda;
+  document.getElementById('cmp-moneda-2').textContent = r.moneda;
+}
+
+/* ===== Búsqueda asistida (Camino A) ===== */
+function buscarEn(tienda) {
+  const q = document.getElementById('cmp-name').value.trim();
+  if (!q) {
+    document.getElementById('cmp-name').focus();
+    return;
+  }
+  const query = encodeURIComponent(q);
+  let url;
+  if (tienda === 'importada') {
+    url = TIENDAS[cmpTienda].buscador(query);
+  } else {
+    const r = REGIMENES[cmpPais];
+    url = `https://${r.mlBuscador}.${r.mlSite}/${query.replace(/%20/g, '-')}`;
+  }
+  window.open(url, '_blank', 'noopener');
+}
+
+/* ===== Tabs ===== */
+function switchTab(tab) {
+  const isCalc = tab === 'calc';
+  document.getElementById('tab-calc').style.display = isCalc ? 'block' : 'none';
+  document.getElementById('tab-compare').style.display = isCalc ? 'none' : 'block';
+  document.getElementById('tab-btn-calc').classList.toggle('active', isCalc);
+  document.getElementById('tab-btn-compare').classList.toggle('active', !isCalc);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ===== Comparador tienda importada vs Mercado Libre ===== */
+function comparar() {
+  const nombre = document.getElementById('cmp-name').value.trim() || 'Este producto';
+  const amzPrice = parseFloat(document.getElementById('amz-price').value) || 0;
+  const amzShip = parseFloat(document.getElementById('amz-ship').value) || 0;
+  const mlPrice = parseFloat(document.getElementById('ml-price').value) || 0;
+  const mlShip = parseFloat(document.getElementById('ml-ship').value) || 0;
+
+  if (amzPrice <= 0 || mlPrice <= 0) {
+    document.getElementById('cmp-error-box').style.display = 'block';
+    return;
+  }
+  document.getElementById('cmp-error-box').style.display = 'none';
+
+  const t = TIENDAS[cmpTienda];
+  const paisInfo = REGIMENES[cmpPais];
+  const moneda = paisInfo.moneda;
+  const tasaUSD_local = tasas[moneda] || FALLBACK[moneda];
+
+  // Tienda importada: precio + envío en USD → total con impuestos (según tienda + país) → convertido a moneda local
+  const amzSubtotalUSD = amzPrice + amzShip;
+  const { total: amzFinalUSD, regimen: r } = calcularImpuestoImportado(cmpTienda, cmpPais, amzSubtotalUSD);
+  const amzFinalLocal = amzFinalUSD * tasaUSD_local;
+
+  // Mercado Libre: ya está en moneda local, compra local, sin impuesto de importación
+  const mlFinalLocal = mlPrice + mlShip;
+
+  const diff = Math.abs(amzFinalLocal - mlFinalLocal);
+  const masCaro = Math.max(amzFinalLocal, mlFinalLocal);
+  const pctAhorro = masCaro > 0 ? (diff / masCaro) * 100 : 0;
+
+  const importadaGana = amzFinalLocal < mlFinalLocal;
+  const empate = amzFinalLocal === mlFinalLocal;
+
+  document.getElementById('cmp-winner-store').textContent = empate
+    ? 'Mismo precio en ambas'
+    : (importadaGana ? t.nombre : `Mercado Libre ${cmpPais}`);
+
+  document.getElementById('cmp-winner-save').innerHTML = empate
+    ? `${nombre} cuesta lo mismo en las dos tiendas.`
+    : `Para <b>${nombre}</b>, ahorrás <b>${fmt(diff, 0)} ${moneda}</b> (${pctAhorro.toFixed(1)}%) eligiendo esta opción.`;
+
+  const rows = document.getElementById('cmp-vs-rows');
+  rows.innerHTML = '';
+
+  const addVsRow = (dotClass, label, totalLocal, detail, isWinner) => {
+    rows.innerHTML += `
+      <div class="vs-row ${isWinner && !empate ? 'win' : ''}">
+        <div>
+          <div class="vs-store"><span class="store-dot" style="background:${dotClass}"></span>${label}</div>
+          <div class="vs-detail">${detail}</div>
+        </div>
+        <div class="vs-amount">${fmt(totalLocal, 0)} ${moneda}</div>
+      </div>`;
+  };
+
+  const detalleImportada = r.type === 'marginal'
+    ? `$${fmt(amzSubtotalUSD)} USD × ${r.baseMultiplier} + excedente sobre US$${r.franquiciaUSD} × ${r.extraRateExcedente}`
+    : `$${fmt(amzSubtotalUSD)} USD × ${amzSubtotalUSD <= r.franquiciaUSD ? r.multiplicadorBajo : r.multiplicadorAlto} (franquicia US$${r.franquiciaUSD})`;
+
+  addVsRow(t.color, t.nombre, amzFinalLocal, detalleImportada, importadaGana);
+  addVsRow('#FFE600', `Mercado Libre ${cmpPais}`, mlFinalLocal,
+    `${fmt(mlPrice)} ${moneda} producto + ${fmt(mlShip)} ${moneda} envío`, !importadaGana);
+
+  document.getElementById('cmp-regimen-nota').textContent = r.nota;
+  document.getElementById('compare-form').style.display = 'none';
+  document.getElementById('compare-results').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function volverAlFormCompare() {
+  document.getElementById('compare-results').style.display = 'none';
+  document.getElementById('compare-form').style.display = 'block';
+}
+
+function nuevaComparacion() {
+  document.getElementById('cmp-name').value = '';
+  document.getElementById('amz-price').value = '';
+  document.getElementById('amz-ship').value = '';
+  document.getElementById('ml-price').value = '';
+  document.getElementById('ml-ship').value = '';
+  const arPill = document.querySelector('#cmp-pais-group .pill[data-pais="AR"]');
+  if (arPill) selectPais(arPill, 'AR');
+  const amzPill = document.querySelector('#cmp-tienda-group .pill[data-tienda="amazon"]');
+  if (amzPill) selectTienda(amzPill, 'amazon');
+  volverAlFormCompare();
+}
+</script>
+</body>
+</html>
